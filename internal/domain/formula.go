@@ -39,20 +39,6 @@ type Formula struct {
 	RetiredAt             *time.Time    `json:"retired_at,omitempty"`
 }
 
-type FormulaLifecycleProjection struct {
-	State    FormulaState
-	Approved bool
-	Retired  bool
-}
-
-func (f Formula) LifecycleProjection() FormulaLifecycleProjection {
-	return FormulaLifecycleProjection{
-		State:    f.State,
-		Approved: f.ApprovedAt != nil,
-		Retired:  f.RetiredAt != nil,
-	}
-}
-
 func (f *Formula) NormalizeLifecycle() {
 	switch {
 	case f.RetiredAt != nil:
@@ -193,6 +179,7 @@ func (f *Formula) Retire(now time.Time) error {
 	}
 	stamp := now.UTC()
 	f.State = FormulaRetired
+	f.RetiredAt = &stamp
 	f.UpdatedAt = stamp
 	f.Version++
 	return nil
