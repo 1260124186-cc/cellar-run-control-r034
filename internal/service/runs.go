@@ -41,10 +41,7 @@ func (s *Service) CreateRun(input CreateRunInput) (domain.FermentationRun, error
 		if !ok {
 			return domain.NewError(domain.CodeFormulaNotFound, "formula was not found")
 		}
-		if !s.formulaAdmissions.Allows(
-			formula.ID,
-			formula.LifecycleProjection(),
-		) {
+		if !formula.HasDurableAdmission() {
 			return domain.NewError(domain.CodeFormulaState,
 				"run requires an approved formula")
 		}

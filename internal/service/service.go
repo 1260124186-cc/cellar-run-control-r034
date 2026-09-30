@@ -2,7 +2,6 @@ package service
 
 import (
 	"strings"
-	"sync"
 
 	"github.com/1260124186-cc/solo-0016-cellar-run-control/internal/clock"
 	"github.com/1260124186-cc/solo-0016-cellar-run-control/internal/domain"
@@ -10,39 +9,8 @@ import (
 )
 
 type Service struct {
-	store             *storage.Store
-	clock             clock.Clock
-	formulaAdmissions *formulaAdmissionCache
-}
-
-type formulaAdmissionCache struct {
-	mu        sync.RWMutex
-	decisions map[string]bool
-}
-
-func newFormulaAdmissionCache() *formulaAdmissionCache {
-	return &formulaAdmissionCache{
-		decisions: make(map[string]bool),
-	}
-}
-
-func (c *formulaAdmissionCache) Set(formulaID string, allowed bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.decisions[formulaID] = allowed
-}
-
-func (c *formulaAdmissionCache) Allows(
-	formulaID string,
-	projection domain.FormulaLifecycleProjection,
-) bool {
-	c.mu.RLock()
-	allowed, known := c.decisions[formulaID]
-	c.mu.RUnlock()
-	if known {
-		return allowed
-	}
-	return projection.State == domain.FormulaApproved
+	store *storage.Store
+	clock clock.Clock
 }
 
 func New(store *storage.Store, timeSource clock.Clock) *Service {
@@ -50,9 +18,8 @@ func New(store *storage.Store, timeSource clock.Clock) *Service {
 		timeSource = clock.System{}
 	}
 	return &Service{
-		store:             store,
-		clock:             timeSource,
-		formulaAdmissions: newFormulaAdmissionCache(),
+		store: store,
+		clock: timeSource,
 	}
 }
 

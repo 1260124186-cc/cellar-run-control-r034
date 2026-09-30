@@ -46,7 +46,6 @@ func (s *Service) CreateFormula(input CreateFormulaInput) (domain.Formula, error
 	if err != nil {
 		return domain.Formula{}, err
 	}
-	s.formulaAdmissions.Set(formula.ID, false)
 	return formula.Clone(), nil
 }
 
@@ -97,13 +96,11 @@ func (s *Service) ApproveFormula(id string, input VersionInput) (domain.Formula,
 	if err != nil {
 		return domain.Formula{}, err
 	}
-	s.formulaAdmissions.Set(updated.ID, true)
 	return updated, nil
 }
 
 func (s *Service) RetireFormula(id string, input VersionInput) (domain.Formula, error) {
 	var updated domain.Formula
-	s.formulaAdmissions.Set(id, false)
 	err := s.store.Execute(func(snapshot *domain.Snapshot) error {
 		formula, ok := snapshot.Formulas[id]
 		if !ok {

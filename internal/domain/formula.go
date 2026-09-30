@@ -39,24 +39,20 @@ type Formula struct {
 	RetiredAt             *time.Time    `json:"retired_at,omitempty"`
 }
 
-type FormulaLifecycleProjection struct {
-	State    FormulaState
-	Approved bool
-	Retired  bool
-}
-
-func (f Formula) LifecycleProjection() FormulaLifecycleProjection {
-	return FormulaLifecycleProjection{
-		State:    f.State,
-		Approved: f.ApprovedAt != nil,
-		Retired:  f.RetiredAt != nil,
-	}
-}
-
 func (f *Formula) NormalizeLifecycle() {
 	switch {
 	case f.RetiredAt != nil:
 		f.State = FormulaRetired
+	case f.State == FormulaRetired:
+		// Legacy repair: earlier builds persisted a retired state without a
+		// retirement timestamp, which silently reverted the formula to
+		// approved on reload. Backfill a durable timestamp from the last
+		// update so the committed retirement survives restarts.
+		stamp := f.UpdatedAt.UTC()
+		if stamp.IsZero() {
+			stamp = time.Now().UTC()
+		}
+		f.RetiredAt = &stamp
 	case f.ApprovedAt != nil:
 		f.State = FormulaApproved
 	default:
@@ -66,6 +62,12 @@ func (f *Formula) NormalizeLifecycle() {
 
 func (f Formula) HasDurableRetirement() bool {
 	return f.State == FormulaRetired && f.RetiredAt != nil
+}
+
+// HasDurableAdmission reports whether the persisted formula record admits new
+// runs: the formula must be durably approved and not durably retired.
+func (f Formula) HasDurableAdmission() bool {
+	return f.State == FormulaApproved && f.ApprovedAt != nil && !f.HasDurableRetirement()
 }
 
 func (f Formula) Clone() Formula {
@@ -193,6 +195,7 @@ func (f *Formula) Retire(now time.Time) error {
 	}
 	stamp := now.UTC()
 	f.State = FormulaRetired
+	f.RetiredAt = &stamp
 	f.UpdatedAt = stamp
 	f.Version++
 	return nil
